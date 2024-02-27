@@ -9,4 +9,4 @@ COPY . .
 
 ENV SERVER_PORT=8080
 
-CMD ["sh", "-c", "exec python3 -m flask run --host=0.0.0.0 --port=$SERVER_PORT"]
+CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port $SERVER_PORT"]
