@@ -1,0 +1,39 @@
+services:
+  pulse_api:
+    build: .
+    depends_on:
+      - pulse_api_database
+    ports:
+      - "8080:8080"
+    environment:
+      - POSTGRES_CONN=postgresql://root:root@api_database/api_database
+      - SERVER_PORT=8080
+    networks:
+      pulse_api:
+        ipv4_address: 172.32.0.2
+
+  pulse_api_database:
+    image: postgres:latest
+    restart: always
+    environment:
+      POSTGRES_DB: "api_database"
+      POSTGRES_USER: "root"
+      POSTGRES_PASSWORD: "root"
+    ports:
+      - "5433:5432"
+    volumes:
+      - database:/var/lib/postgresql/data
+    networks:
+      pulse_api:
+        ipv4_address: 172.32.0.3
+
+volumes:
+  database:
+
+networks:
+  pulse_api:
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.32.0.0/24
+          gateway: 172.32.0.1
