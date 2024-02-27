@@ -1,5 +1,5 @@
 .dockerignore
 Dockerfile
 README.md
-.venv/
+venv/
 __pycache__/
