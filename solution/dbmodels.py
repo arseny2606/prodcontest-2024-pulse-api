@@ -1,7 +1,9 @@
+import datetime
 from typing import Optional
 
-from sqlmodel import Field, SQLModel
 from pydantic import constr
+from sqlalchemy import event
+from sqlmodel import Field, SQLModel
 
 
 class DBCountry(SQLModel, table=True):
@@ -25,3 +27,14 @@ class DBUser(SQLModel, table=True):
     isPublic: bool
     phone: constr(pattern=r'\+[\d]+') = Field(unique=True, nullable=True)
     image: constr(max_length=200) = Field(nullable=True)
+    updated_at: int = Field(nullable=True)
+
+
+@event.listens_for(DBUser, 'before_insert')
+def receive_before_insert(mapper, connection, target):
+    target.updated_at = int(datetime.datetime.now().timestamp())
+
+
+@event.listens_for(DBUser, 'before_update')
+def receive_before_update(mapper, connection, target):
+    target.updated_at = int(datetime.datetime.now().timestamp())
