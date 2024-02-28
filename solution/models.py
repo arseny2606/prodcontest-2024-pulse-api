@@ -16,21 +16,13 @@ class CountryAlpha2(RootModel[Any]):
     )
 
 
-class CountryRegion(Enum):
-    Europe = 'Europe'
-    Africa = 'Africa'
-    Americas = 'Americas'
-    Oceania = 'Oceania'
-    Asia = 'Asia'
-
-
 class Country(BaseModel):
     name: constr(max_length=100) = Field(..., description='Полное название страны')
     alpha2: CountryAlpha2
     alpha3: constr(pattern=r'[a-zA-Z]{3}', max_length=3) = Field(
         ..., description='Трехбуквенный код страны'
     )
-    region: Optional[CountryRegion] = None
+    region: Optional[str] = None
 
 
 class UserLogin(RootModel[Any]):

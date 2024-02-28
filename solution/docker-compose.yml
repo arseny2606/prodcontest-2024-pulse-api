@@ -6,7 +6,7 @@ services:
     ports:
       - "8080:8080"
     environment:
-      - POSTGRES_CONN=postgresql://root:root@api_database/api_database
+      - POSTGRES_CONN=postgres://root:root@pulse_api_database:5432/pulse_api_database
       - SERVER_PORT=8080
     networks:
       pulse_api:
@@ -16,7 +16,7 @@ services:
     image: postgres:latest
     restart: always
     environment:
-      POSTGRES_DB: "api_database"
+      POSTGRES_DB: "pulse_api_database"
       POSTGRES_USER: "root"
       POSTGRES_PASSWORD: "root"
     ports:

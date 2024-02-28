@@ -1,15 +1,16 @@
 from typing import List, Optional, Union, Annotated
 
-from fastapi import FastAPI, APIRouter
+from fastapi import FastAPI, APIRouter, Depends, Query
 from pydantic import conint
+from sqlalchemy.orm import Session
 
+from database.database_connector import init_models, get_session
+from dbmodels import DBCountry
 from models import (
     AuthRegisterPostRequest,
     AuthRegisterPostResponse,
     AuthSignInPostResponse,
-    Country,
     CountryAlpha2,
-    CountryRegion,
     ErrorResponse,
     FriendsAddPostRequest,
     FriendsAddPostResponse,
@@ -23,8 +24,10 @@ from models import (
     PostId,
     PostsNewPostRequest,
     UserLogin,
-    UserProfile, PingResponse,
+    UserProfile, PingResponse, Country,
 )
+
+init_models()
 
 app = FastAPI(
     title='Pulse API',
@@ -44,7 +47,7 @@ router = APIRouter(prefix="/api")
     },
 )
 def auth_register(
-    body: AuthRegisterPostRequest,
+        body: AuthRegisterPostRequest,
 ) -> Union[None, AuthRegisterPostResponse, ErrorResponse]:
     """
     Регистрация нового пользователя
@@ -65,19 +68,23 @@ def auth_sign_in() -> Union[AuthSignInPostResponse, ErrorResponse]:
 
 
 @router.get('/countries', response_model=List[Country])
-def list_countries(region: Optional[List[CountryRegion]] = None) -> List[Country]:
+def list_countries(region: Optional[List[str]] = Query(None), db_session: Session = Depends(get_session)) \
+        -> list[Country]:
     """
     Получить список стран
     """
-    pass
+    stmt = db_session.query(DBCountry)
+    if region:
+        stmt = stmt.filter(DBCountry.region.in_(region))
+    return stmt.all()
 
 
 @router.get(
     '/countries/{alpha2}',
-    response_model=Country,
+    response_model=DBCountry,
     responses={'404': {'model': ErrorResponse}},
 )
-def get_country(alpha2: Annotated[str, CountryAlpha2]) -> Union[Country, ErrorResponse]:
+def get_country(alpha2: Annotated[str, CountryAlpha2]) -> Union[DBCountry, ErrorResponse]:
     """
     Получить страну по alpha2 коду
     """
@@ -90,7 +97,7 @@ def get_country(alpha2: Annotated[str, CountryAlpha2]) -> Union[Country, ErrorRe
     responses={'401': {'model': ErrorResponse}},
 )
 def friends_list(
-    limit: Optional[conint(ge=0, le=50)] = 5, offset: Optional[int] = 0
+        limit: Optional[conint(ge=0, le=50)] = 5, offset: Optional[int] = 0
 ) -> Union[List[FriendsGetResponse], ErrorResponse]:
     """
     Получение списка друзей
@@ -104,7 +111,7 @@ def friends_list(
     responses={'401': {'model': ErrorResponse}, '404': {'model': ErrorResponse}},
 )
 def friends_add(
-    body: FriendsAddPostRequest,
+        body: FriendsAddPostRequest,
 ) -> Union[FriendsAddPostResponse, ErrorResponse]:
     """
     Добавить пользователя в друзья
@@ -118,7 +125,7 @@ def friends_add(
     responses={'401': {'model': ErrorResponse}},
 )
 def friends_remove(
-    body: FriendsRemovePostRequest,
+        body: FriendsRemovePostRequest,
 ) -> Union[FriendsRemovePostResponse, ErrorResponse]:
     """
     Удалить пользователя из друзей
@@ -160,7 +167,7 @@ def patch_my_profile(body: MeProfilePatchRequest) -> Union[UserProfile, ErrorRes
     },
 )
 def update_password(
-    body: MeUpdatePasswordPostRequest,
+        body: MeUpdatePasswordPostRequest,
 ) -> Union[MeUpdatePasswordPostResponse, ErrorResponse]:
     """
     Обновление пароля
@@ -180,7 +187,7 @@ def ping() -> Union[PingResponse, ErrorResponse]:
     '/posts/feed/my', response_model=Post, responses={'401': {'model': ErrorResponse}}
 )
 def get_my_feed(
-    limit: Optional[conint(ge=0, le=50)] = 5, offset: Optional[int] = 0
+        limit: Optional[conint(ge=0, le=50)] = 5, offset: Optional[int] = 0
 ) -> Union[Post, ErrorResponse]:
     """
     Получить ленту со своими постами
@@ -194,9 +201,9 @@ def get_my_feed(
     responses={'401': {'model': ErrorResponse}, '404': {'model': ErrorResponse}},
 )
 def get_feed_by_others(
-    login: Annotated[str, UserLogin],
-    limit: Optional[conint(ge=0, le=50)] = 5,
-    offset: Optional[int] = 0,
+        login: Annotated[str, UserLogin],
+        limit: Optional[conint(ge=0, le=50)] = 5,
+        offset: Optional[int] = 0,
 ) -> Union[Post, ErrorResponse]:
     """
     Получить ленту с постами другого пользователя
@@ -220,7 +227,7 @@ def submit_post(body: PostsNewPostRequest) -> Union[Post, ErrorResponse]:
     responses={'401': {'model': ErrorResponse}, '404': {'model': ErrorResponse}},
 )
 def get_post_by_id(
-    post_id: Annotated[str, PostId]
+        post_id: Annotated[str, PostId]
 ) -> Union[Post, ErrorResponse]:
     """
     Получить ленту со своими постами
@@ -234,7 +241,7 @@ def get_post_by_id(
     responses={'401': {'model': ErrorResponse}, '404': {'model': ErrorResponse}},
 )
 def dislike_post(
-    post_id: Annotated[str, PostId]
+        post_id: Annotated[str, PostId]
 ) -> Union[Post, ErrorResponse]:
     """
     Дизлайк поста
@@ -248,7 +255,7 @@ def dislike_post(
     responses={'401': {'model': ErrorResponse}, '404': {'model': ErrorResponse}},
 )
 def like_post(
-    post_id: Annotated[str, PostId]
+        post_id: Annotated[str, PostId]
 ) -> Union[Post, ErrorResponse]:
     """
     Лайк поста
