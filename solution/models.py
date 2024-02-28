@@ -1,4 +1,3 @@
-from enum import Enum
 from typing import List, Optional, Any
 
 from pydantic import BaseModel, Field, conint, constr, RootModel

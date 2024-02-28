@@ -1,6 +1,6 @@
 from typing import List, Optional, Union, Annotated
 
-from fastapi import FastAPI, APIRouter, Depends, Query
+from fastapi import FastAPI, APIRouter, Depends, Query, Response
 from pydantic import conint
 from sqlalchemy.orm import Session
 
@@ -81,14 +81,19 @@ def list_countries(region: Optional[List[str]] = Query(None), db_session: Sessio
 
 @router.get(
     '/countries/{alpha2}',
-    response_model=DBCountry,
-    responses={'404': {'model': ErrorResponse}},
+    response_model=Union[Country, ErrorResponse],
+    responses={404: {'model': ErrorResponse}},
 )
-def get_country(alpha2: Annotated[str, CountryAlpha2]) -> Union[DBCountry, ErrorResponse]:
+def get_country(response: Response, alpha2: Annotated[str, CountryAlpha2], db_session: Session = Depends(get_session))\
+        -> Union[Country, ErrorResponse]:
     """
     Получить страну по alpha2 коду
     """
-    pass
+    stmt = db_session.query(DBCountry).filter(DBCountry.alpha2 == alpha2.root)
+    if stmt.first() is None:
+        response.status_code = 404
+        return ErrorResponse(reason="country not found")
+    return stmt.first()
 
 
 @router.get(
