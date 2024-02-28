@@ -64,6 +64,7 @@ async def validation_exception_handler(request, exc):
         '400': {'model': ErrorResponse},
         '409': {'model': ErrorResponse},
     },
+    response_model_exclude_none=True,
 )
 def auth_register(
         response: Response, body: AuthRegisterPostRequest, db_session: Session = Depends(get_session)
