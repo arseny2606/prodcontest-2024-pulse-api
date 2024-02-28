@@ -1,11 +1,14 @@
 from typing import List, Optional, Union, Annotated
 
 from fastapi import FastAPI, APIRouter, Depends, Query, Response
+from fastapi.exceptions import RequestValidationError
+from passlib.context import CryptContext
 from pydantic import conint
 from sqlalchemy.orm import Session
+from starlette.responses import JSONResponse
 
 from database.database_connector import init_models, get_session
-from dbmodels import DBCountry
+from dbmodels import DBCountry, DBUser
 from models import (
     AuthRegisterPostRequest,
     AuthRegisterPostResponse,
@@ -27,6 +30,17 @@ from models import (
     UserProfile, PingResponse, Country,
 )
 
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+
+def verify_password(plain_password, hashed_password):
+    return pwd_context.verify(plain_password, hashed_password)
+
+
+def get_password_hash(password):
+    return pwd_context.hash(password)
+
+
 init_models()
 
 app = FastAPI(
@@ -37,9 +51,14 @@ app = FastAPI(
 router = APIRouter(prefix="/api")
 
 
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request, exc):
+    return JSONResponse(status_code=400, content={"reason": str(exc)})
+
+
 @router.post(
     '/auth/register',
-    response_model=None,
+    response_model=Union[AuthRegisterPostResponse, ErrorResponse],
     responses={
         '201': {'model': AuthRegisterPostResponse},
         '400': {'model': ErrorResponse},
@@ -47,12 +66,29 @@ router = APIRouter(prefix="/api")
     },
 )
 def auth_register(
-        body: AuthRegisterPostRequest,
-) -> Union[None, AuthRegisterPostResponse, ErrorResponse]:
+        response: Response, body: AuthRegisterPostRequest, db_session: Session = Depends(get_session)
+) -> Union[AuthRegisterPostResponse, ErrorResponse]:
     """
     Регистрация нового пользователя
     """
-    pass
+    db_model = DBUser(**body.dict())
+    if not all([any([i for i in db_model.password if i.islower()]), any([i for i in db_model.password if i.isupper()]),
+                any([i for i in db_model.password if i.isdigit()])]):
+        response.status_code = 400
+        return ErrorResponse(reason="invalid password")
+    db_model.password = get_password_hash(db_model.password)
+    country = db_session.query(DBCountry).filter(DBCountry.alpha2 == db_model.countryCode)
+    if not country.first():
+        response.status_code = 400
+        return ErrorResponse(reason="no such country")
+    db_session.add(db_model)
+    try:
+        db_session.commit()
+    except:
+        response.status_code = 409
+        return ErrorResponse(reason="conflict")
+    response.status_code = 201
+    return AuthRegisterPostResponse(profile=UserProfile(**db_model.dict(exclude_none=True)))
 
 
 @router.post(
@@ -67,16 +103,23 @@ def auth_sign_in() -> Union[AuthSignInPostResponse, ErrorResponse]:
     pass
 
 
-@router.get('/countries', response_model=List[Country])
-def list_countries(region: Optional[List[str]] = Query(None), db_session: Session = Depends(get_session)) \
-        -> list[Country]:
+@router.get('/countries', response_model=Union[List[Country], ErrorResponse])
+def list_countries(response: Response, region: Optional[List[str]] = Query(None),
+                   db_session: Session = Depends(get_session)) \
+        -> Union[list[Country], ErrorResponse]:
     """
     Получить список стран
     """
-    stmt = db_session.query(DBCountry)
+    stmt = db_session.query(DBCountry).order_by(DBCountry.alpha2.asc())
     if region:
         stmt = stmt.filter(DBCountry.region.in_(region))
-    return stmt.all()
+    countries = stmt.all()
+    if countries:
+        return countries
+    if region:
+        response.status_code = 400
+        return ErrorResponse(reason="no filtered countries")
+    return []
 
 
 @router.get(
@@ -84,16 +127,17 @@ def list_countries(region: Optional[List[str]] = Query(None), db_session: Sessio
     response_model=Union[Country, ErrorResponse],
     responses={404: {'model': ErrorResponse}},
 )
-def get_country(response: Response, alpha2: Annotated[str, CountryAlpha2], db_session: Session = Depends(get_session))\
+def get_country(response: Response, alpha2: Annotated[str, CountryAlpha2], db_session: Session = Depends(get_session)) \
         -> Union[Country, ErrorResponse]:
     """
     Получить страну по alpha2 коду
     """
     stmt = db_session.query(DBCountry).filter(DBCountry.alpha2 == alpha2.root)
-    if stmt.first() is None:
+    country = stmt.first()
+    if country is None:
         response.status_code = 404
         return ErrorResponse(reason="country not found")
-    return stmt.first()
+    return country
 
 
 @router.get(

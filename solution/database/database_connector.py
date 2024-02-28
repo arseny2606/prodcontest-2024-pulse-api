@@ -22,5 +22,6 @@ def get_session():
 
 def init_models() -> None:
     from dbmodels import DBCountry  # noqa: unused
+    from dbmodels import DBUser  # noqa: unused
     with engine.begin() as conn:
         SQLModel.metadata.create_all(conn)
