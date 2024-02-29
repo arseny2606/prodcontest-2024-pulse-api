@@ -225,8 +225,8 @@ def patch_my_profile(response: Response, body: MeProfilePatchRequest, current_us
     """
     body_without_none = body.dict(exclude_none=True)
     new_user = current_user.copy(update=body_without_none)
+    db_session.add(new_user)
     try:
-        db_session.add(new_user)
         db_session.commit()
     except:
         response.status_code = 409
