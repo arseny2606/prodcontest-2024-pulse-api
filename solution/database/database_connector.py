@@ -1,11 +1,12 @@
-from sqlalchemy import NullPool
-from sqlmodel import create_engine, Session
+from sqlalchemy import create_engine, NullPool
+from sqlalchemy.orm import sessionmaker
 from sqlmodel import SQLModel
 
 import config
 
 
-engine = create_engine(config.DATABASE_URL, poolclass=NullPool, echo=True)
+engine = create_engine(config.DATABASE_URL, poolclass=NullPool)
+session_maker = sessionmaker(engine, expire_on_commit=False)
 
 
 def get_session():
@@ -13,7 +14,7 @@ def get_session():
     Create async session for work with database
     :return: AsyncSession
     """
-    with Session(engine) as session:
+    with session_maker() as session:
         yield session
 
 

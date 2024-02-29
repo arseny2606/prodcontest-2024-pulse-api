@@ -4,7 +4,7 @@ from fastapi import FastAPI, APIRouter, Depends, Query, Response
 from fastapi.exceptions import HTTPException, RequestValidationError
 from passlib.context import CryptContext
 from pydantic import conint
-from sqlmodel import Session
+from sqlalchemy.orm import Session
 from starlette.responses import JSONResponse
 
 from auth import create_access_token, get_current_user
