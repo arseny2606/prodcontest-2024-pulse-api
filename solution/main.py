@@ -116,7 +116,7 @@ def auth_sign_in(response: Response, body: AuthSignInPostRequest, db_session: Se
     if user is None or not verify_password(body.password.root, user.password):
         response.status_code = 401
         return ErrorResponse(reason="user not found")
-    token = create_access_token({"user_id": user.id})
+    token = create_access_token({"login": user.login})
     return AuthSignInPostResponse(token=token)
 
 

@@ -24,12 +24,12 @@ CredentialsException = HTTPException(
 def get_current_user(token: Annotated[str, Depends(oauth2_scheme)], db_session: Session = Depends(get_session)):
     try:
         payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
-        user_id: int = payload.get("user_id")
-        if user_id is None:
+        login: str = payload.get("login")
+        if login is None:
             raise CredentialsException
     except JWTError:
         raise CredentialsException
-    user: DBUser = db_session.query(DBUser).filter(DBUser.id == user_id).one()
+    user: DBUser = db_session.query(DBUser).filter(DBUser.login == login).one()
     token_issued: int = payload.get("issued_at", 0)
     expire_at: int = payload.get("expire_at", 0)
     if user is None or user.updated_at >= token_issued or expire_at < int(datetime.datetime.now().timestamp()):
