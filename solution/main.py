@@ -4,7 +4,7 @@ from fastapi import FastAPI, APIRouter, Depends, Query, Response
 from fastapi.exceptions import HTTPException, RequestValidationError
 from passlib.context import CryptContext
 from pydantic import conint
-from sqlalchemy.orm import Session
+from sqlmodel import Session
 from starlette.responses import JSONResponse
 
 from auth import create_access_token, get_current_user
@@ -224,18 +224,20 @@ def patch_my_profile(response: Response, body: MeProfilePatchRequest, current_us
     Редактирование собственного профиля
     """
     body_without_none = body.dict(exclude_none=True)
-    new_user = current_user.copy(update=body_without_none)
-    country = db_session.query(DBCountry).filter(DBCountry.alpha2 == new_user.countryCode)
-    if not country.first():
-        response.status_code = 400
-        return ErrorResponse(reason="no such country")
-    db_session.add(new_user)
+    for key in body_without_none:
+        setattr(current_user, key, body_without_none[key])
+    if body_without_none.get("countryCode"):
+        country = db_session.query(DBCountry).filter(DBCountry.alpha2 == body_without_none.get("countryCode"))
+        if not country.first():
+            response.status_code = 400
+            return ErrorResponse(reason="no such country")
+    db_session.add(current_user)
     try:
         db_session.commit()
     except:
         response.status_code = 409
         return ErrorResponse(reason="conflict")
-    return new_user
+    return current_user
 
 
 @router.post(
