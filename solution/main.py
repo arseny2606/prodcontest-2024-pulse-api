@@ -61,6 +61,8 @@ async def exception_handler(request, exc):
 async def exception_handler(request, exc):
     if exc.status_code == 401:
         return JSONResponse(status_code=401, content={"reason": str(exc.detail)})
+    if exc.status_code >= 500:
+        return JSONResponse(status_code=exc.status_code, content={"reason": str(exc.detail)})
     return JSONResponse(status_code=400, content={"reason": str(exc.detail)})
 
 
@@ -105,7 +107,8 @@ def auth_register(
     response_model=Union[AuthSignInPostResponse, ErrorResponse],
     responses={'401': {'model': ErrorResponse}},
 )
-def auth_sign_in(response: Response, body: AuthSignInPostRequest, db_session: Session = Depends(get_session)) -> Union[AuthSignInPostResponse, ErrorResponse]:
+def auth_sign_in(response: Response, body: AuthSignInPostRequest, db_session: Session = Depends(get_session)) -> Union[
+    AuthSignInPostResponse, ErrorResponse]:
     """
     Аутентификация для получения токена
     """
@@ -199,6 +202,7 @@ def friends_remove(
 @router.get(
     '/me/profile',
     response_model=UserProfile,
+    response_model_exclude_none=True,
     responses={'401': {'model': ErrorResponse}},
 )
 def get_my_profile(current_user=Depends(get_current_user)) -> Union[UserProfile, ErrorResponse]:
@@ -210,14 +214,24 @@ def get_my_profile(current_user=Depends(get_current_user)) -> Union[UserProfile,
 
 @router.patch(
     '/me/profile',
-    response_model=UserProfile,
-    responses={'401': {'model': ErrorResponse}},
+    response_model=Union[UserProfile, ErrorResponse],
+    response_model_exclude_none=True,
+    responses={'401': {'model': ErrorResponse}, '409': {'model': ErrorResponse}},
 )
-def patch_my_profile(body: MeProfilePatchRequest) -> Union[UserProfile, ErrorResponse]:
+def patch_my_profile(response: Response, body: MeProfilePatchRequest, current_user=Depends(get_current_user),
+                     db_session: Session = Depends(get_session)) -> Union[UserProfile, ErrorResponse]:
     """
     Редактирование собственного профиля
     """
-    pass
+    body_without_none = body.dict(exclude_none=True)
+    new_user = current_user.copy(update=body_without_none)
+    try:
+        db_session.add(new_user)
+        db_session.commit()
+    except:
+        response.status_code = 409
+        return ErrorResponse(reason="conflict")
+    return new_user
 
 
 @router.post(
