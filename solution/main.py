@@ -225,6 +225,10 @@ def patch_my_profile(response: Response, body: MeProfilePatchRequest, current_us
     """
     body_without_none = body.dict(exclude_none=True)
     new_user = current_user.copy(update=body_without_none)
+    country = db_session.query(DBCountry).filter(DBCountry.alpha2 == new_user.countryCode)
+    if not country.first():
+        response.status_code = 400
+        return ErrorResponse(reason="no such country")
     db_session.add(new_user)
     try:
         db_session.commit()
