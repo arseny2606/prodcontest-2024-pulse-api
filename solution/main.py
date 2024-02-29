@@ -224,6 +224,9 @@ def patch_my_profile(response: Response, body: MeProfilePatchRequest, current_us
     Редактирование собственного профиля
     """
     body_without_none = body.dict(exclude_none=True)
+    if not body_without_none:
+        response.status_code = 400
+        return ErrorResponse(reason="no fields")
     for key in body_without_none:
         setattr(current_user, key, body_without_none[key])
     if body_without_none.get("countryCode"):
