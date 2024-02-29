@@ -59,6 +59,8 @@ async def exception_handler(request, exc):
 
 @app.exception_handler(HTTPException)
 async def exception_handler(request, exc):
+    if exc.status_code == 401:
+        return JSONResponse(status_code=401, content={"reason": str(exc.detail)})
     return JSONResponse(status_code=400, content={"reason": str(exc.detail)})
 
 
