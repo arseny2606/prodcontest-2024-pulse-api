@@ -143,6 +143,11 @@ class AuthRegisterPostResponse(BaseModel):
     profile: UserProfile
 
 
+class AuthSignInPostRequest(BaseModel):
+    login: UserLogin
+    password: UserPassword
+
+
 class AuthSignInPostResponse(BaseModel):
     token: constr(min_length=20) = Field(
         ...,

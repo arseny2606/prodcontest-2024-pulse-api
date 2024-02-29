@@ -33,8 +33,3 @@ class DBUser(SQLModel, table=True):
 @event.listens_for(DBUser, 'before_insert')
 def receive_before_insert(mapper, connection, target):
     target.updated_at = int(datetime.datetime.now().timestamp())
-
-
-@event.listens_for(DBUser, 'before_update')
-def receive_before_update(mapper, connection, target):
-    target.updated_at = int(datetime.datetime.now().timestamp())

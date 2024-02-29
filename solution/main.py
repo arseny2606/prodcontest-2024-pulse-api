@@ -1,12 +1,13 @@
 from typing import List, Optional, Union, Annotated
 
 from fastapi import FastAPI, APIRouter, Depends, Query, Response
-from fastapi.exceptions import RequestValidationError
+from fastapi.exceptions import HTTPException, RequestValidationError
 from passlib.context import CryptContext
 from pydantic import conint
 from sqlalchemy.orm import Session
 from starlette.responses import JSONResponse
 
+from auth import create_access_token
 from database.database_connector import init_models, get_session
 from dbmodels import DBCountry, DBUser
 from models import (
@@ -27,7 +28,7 @@ from models import (
     PostId,
     PostsNewPostRequest,
     UserLogin,
-    UserProfile, PingResponse, Country,
+    UserProfile, PingResponse, Country, AuthSignInPostRequest,
 )
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -52,8 +53,13 @@ router = APIRouter(prefix="/api")
 
 
 @app.exception_handler(RequestValidationError)
-async def validation_exception_handler(request, exc):
+async def exception_handler(request, exc):
     return JSONResponse(status_code=400, content={"reason": str(exc)})
+
+
+@app.exception_handler(HTTPException)
+async def exception_handler(request, exc):
+    return JSONResponse(status_code=400, content={"reason": str(exc.detail)})
 
 
 @router.post(
@@ -94,14 +100,19 @@ def auth_register(
 
 @router.post(
     '/auth/sign-in',
-    response_model=AuthSignInPostResponse,
+    response_model=Union[AuthSignInPostResponse, ErrorResponse],
     responses={'401': {'model': ErrorResponse}},
 )
-def auth_sign_in() -> Union[AuthSignInPostResponse, ErrorResponse]:
+def auth_sign_in(response: Response, body: AuthSignInPostRequest, db_session: Session = Depends(get_session)) -> Union[AuthSignInPostResponse, ErrorResponse]:
     """
     Аутентификация для получения токена
     """
-    pass
+    user = db_session.query(DBUser).filter(DBUser.login == body.login.root).first()
+    if user is None or not verify_password(body.password.root, user.password):
+        response.status_code = 401
+        return ErrorResponse(reason="user not found")
+    token = create_access_token({"user_id": user.id})
+    return AuthSignInPostResponse(token=token)
 
 
 @router.get('/countries', response_model=Union[List[Country], ErrorResponse])
