@@ -7,7 +7,7 @@ from pydantic import conint
 from sqlalchemy.orm import Session
 from starlette.responses import JSONResponse
 
-from auth import create_access_token
+from auth import create_access_token, get_current_user
 from database.database_connector import init_models, get_session
 from dbmodels import DBCountry, DBUser
 from models import (
@@ -199,11 +199,11 @@ def friends_remove(
     response_model=UserProfile,
     responses={'401': {'model': ErrorResponse}},
 )
-def get_my_profile() -> Union[UserProfile, ErrorResponse]:
+def get_my_profile(current_user=Depends(get_current_user)) -> Union[UserProfile, ErrorResponse]:
     """
     Получение собственного профиля
     """
-    pass
+    return current_user
 
 
 @router.patch(
