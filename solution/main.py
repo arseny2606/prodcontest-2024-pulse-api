@@ -28,7 +28,7 @@ from models import (
     PostId,
     PostsNewPostRequest,
     UserLogin,
-    UserProfile, PingResponse, Country, AuthSignInPostRequest,
+    UserProfile, PingResponse, Country, AuthSignInPostRequest, CountryRegion,
 )
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -121,7 +121,7 @@ def auth_sign_in(response: Response, body: AuthSignInPostRequest, db_session: Se
 
 
 @router.get('/countries', response_model=Union[List[Country], ErrorResponse])
-def list_countries(response: Response, region: Optional[List[str]] = Query(None),
+def list_countries(response: Response, region: Optional[List[CountryRegion]] = Query(None),
                    db_session: Session = Depends(get_session)) \
         -> Union[list[Country], ErrorResponse]:
     """
@@ -129,7 +129,7 @@ def list_countries(response: Response, region: Optional[List[str]] = Query(None)
     """
     stmt = db_session.query(DBCountry).order_by(DBCountry.alpha2.asc())
     if region:
-        stmt = stmt.filter(DBCountry.region.in_(region))
+        stmt = stmt.filter(DBCountry.region.in_([i.value for i in region]))
     countries = stmt.all()
     if countries:
         return countries

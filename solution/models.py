@@ -1,4 +1,5 @@
-from typing import List, Optional, Any
+from enum import Enum
+from typing import List, Optional
 
 from pydantic import BaseModel, Field, conint, constr, RootModel
 
@@ -7,7 +8,15 @@ class PingResponse(BaseModel):
     status: str
 
 
-class CountryAlpha2(RootModel[Any]):
+class CountryRegion(Enum):
+    Europe = 'Europe'
+    Africa = 'Africa'
+    Americas = 'Americas'
+    Oceania = 'Oceania'
+    Asia = 'Asia'
+
+
+class CountryAlpha2(RootModel[str]):
     root: constr(pattern=r'[a-zA-Z]{2}', max_length=2) = Field(
         ...,
         description='Двухбуквенный код, уникально идентифицирующий страну',
@@ -24,19 +33,19 @@ class Country(BaseModel):
     region: Optional[str] = None
 
 
-class UserLogin(RootModel[Any]):
+class UserLogin(RootModel[str]):
     root: constr(pattern=r'[a-zA-Z0-9-]+', max_length=30) = Field(
         ..., description='Логин пользователя', example='yellowMonkey'
     )
 
 
-class UserEmail(RootModel[Any]):
-    root: constr(max_length=50) = Field(
+class UserEmail(RootModel[str]):
+    root: constr(min_length=1, max_length=50) = Field(
         ..., description='E-mail пользователя', example='yellowstone1980@you.ru'
     )
 
 
-class UserPassword(RootModel[Any]):
+class UserPassword(RootModel[str]):
     root: constr(min_length=6, max_length=100) = Field(
         ...,
         description='Пароль пользователя, к которому предъявляются следующие требования:\n\n- Длина пароля не менее 6 '
@@ -46,7 +55,7 @@ class UserPassword(RootModel[Any]):
     )
 
 
-class UserIsPublic(RootModel[Any]):
+class UserIsPublic(RootModel[bool]):
     root: bool = Field(
         ...,
         description='Является ли данный профиль публичным. \n\nПубличные профили доступны другим пользователям: если '
@@ -55,16 +64,16 @@ class UserIsPublic(RootModel[Any]):
     )
 
 
-class UserPhone(RootModel[Any]):
-    root: constr(pattern=r'\+[\d]+') = Field(
+class UserPhone(RootModel[str]):
+    root: constr(min_length=1, pattern=r'\+[\d]+') = Field(
         ...,
         description='Номер телефона пользователя в формате +123456789',
         example='+74951239922',
     )
 
 
-class UserImage(RootModel[Any]):
-    root: constr(max_length=200) = Field(
+class UserImage(RootModel[str]):
+    root: constr(min_length=1, max_length=200) = Field(
         ...,
         description='Ссылка на фото для аватара пользователя',
         example='https://http.cat/images/100.jpg',
@@ -80,15 +89,15 @@ class UserProfile(BaseModel):
     image: Optional[UserImage] = None
 
 
-class PostId(RootModel[Any]):
-    root: str = Field(
+class PostId(RootModel[str]):
+    root: constr(max_length=100) = Field(
         ...,
         description='Уникальный идентификатор публикации, присвоенный сервером.',
         example='550e8400-e29b-41d4-a716-446655440000',
     )
 
 
-class PostContent(RootModel[Any]):
+class PostContent(RootModel[str]):
     root: constr(max_length=1000) = Field(
         ...,
         description='Текст публикации.',
@@ -96,7 +105,7 @@ class PostContent(RootModel[Any]):
     )
 
 
-class PostTags(RootModel[Any]):
+class PostTags(RootModel[str]):
     root: List[constr(max_length=20)] = Field(
         ...,
         description='Список тегов публикации.',
