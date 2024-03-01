@@ -351,14 +351,20 @@ def like_post(
 
 @router.get(
     '/profiles/{login}',
-    response_model=UserProfile,
+    response_model=Union[UserProfile, ErrorResponse],
+    response_model_exclude_none=True,
     responses={'401': {'model': ErrorResponse}, '403': {'model': ErrorResponse}},
 )
-def get_profile(login: Annotated[str, UserLogin]) -> Union[UserProfile, ErrorResponse]:
+def get_profile(response: Response, login: Annotated[str, UserLogin], current_user=Depends(get_current_user),
+                db_session: Session = Depends(get_session)) -> Union[UserProfile, ErrorResponse]:
     """
     Получение профиля пользователя по логину
     """
-    pass
+    user_account = db_session.query(DBUser).filter(DBUser.login == login.root).first()
+    if user_account is None or (not user_account.isPublic and login.root != current_user.login):
+        response.status_code = 403
+        return ErrorResponse(reason="access denied")
+    return user_account
 
 
 app.include_router(router)
