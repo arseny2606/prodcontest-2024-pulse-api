@@ -1,3 +1,4 @@
+import datetime
 from typing import List, Optional, Union, Annotated
 
 from fastapi import FastAPI, APIRouter, Depends, Query, Response
@@ -245,7 +246,7 @@ def patch_my_profile(response: Response, body: MeProfilePatchRequest, current_us
 
 @router.post(
     '/me/updatePassword',
-    response_model=MeUpdatePasswordPostResponse,
+    response_model=Union[MeUpdatePasswordPostResponse, ErrorResponse],
     responses={
         '400': {'model': ErrorResponse},
         '401': {'model': ErrorResponse},
@@ -253,12 +254,23 @@ def patch_my_profile(response: Response, body: MeProfilePatchRequest, current_us
     },
 )
 def update_password(
-        body: MeUpdatePasswordPostRequest,
+        response: Response, body: MeUpdatePasswordPostRequest, current_user=Depends(get_current_user), db_session=Depends(get_session)
 ) -> Union[MeUpdatePasswordPostResponse, ErrorResponse]:
     """
     Обновление пароля
     """
-    pass
+    if not all([any([i for i in body.newPassword.root if i.islower()]), any([i for i in body.newPassword.root if i.isupper()]),
+                any([i for i in body.newPassword.root if i.isdigit()])]):
+        response.status_code = 400
+        return ErrorResponse(reason="invalid password")
+    if not verify_password(body.oldPassword.root, current_user.password):
+        response.status_code = 403
+        return ErrorResponse(reason="invalid old password")
+    current_user.password = get_password_hash(body.newPassword.root)
+    current_user.updated_at = int(datetime.datetime.now().timestamp())
+    db_session.add(current_user)
+    db_session.commit()
+    return MeUpdatePasswordPostResponse(status="ok")
 
 
 @router.get('/ping', response_model=PingResponse)
