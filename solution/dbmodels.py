@@ -37,7 +37,7 @@ class DBUser(SQLModel, table=True):
     isPublic: bool
     phone: constr(pattern=r'\+[\d]+') = Field(unique=True, nullable=True)
     image: constr(max_length=200) = Field(nullable=True)
-    updated_at: int = Field(nullable=True)
+    updated_at: float = Field(nullable=True)
 
     friends: list["DBUser"] = Relationship(sa_relationship_kwargs={"secondary": "friends",
                                                                    "order_by": "friends.c.added_at",
@@ -49,4 +49,4 @@ class DBUser(SQLModel, table=True):
 
 @event.listens_for(DBUser, 'before_insert')
 def receive_before_insert(mapper, connection, target):
-    target.updated_at = int(datetime.datetime.now().timestamp())
+    target.updated_at = datetime.datetime.now().timestamp()

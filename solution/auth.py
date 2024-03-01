@@ -30,9 +30,9 @@ def get_current_user(token: Annotated[str, Depends(oauth2_scheme)], db_session: 
     except JWTError:
         raise CredentialsException
     user: DBUser = db_session.query(DBUser).filter(DBUser.login == login).one()
-    token_issued: int = payload.get("issued_at", 0)
-    expire_at: int = payload.get("expire_at", 0)
-    if user is None or user.updated_at >= token_issued or expire_at < int(datetime.datetime.now().timestamp()):
+    token_issued: float = payload.get("issued_at", 0)
+    expire_at: float = payload.get("expire_at", 0)
+    if user is None or user.updated_at > token_issued or expire_at < datetime.datetime.now().timestamp():
         raise CredentialsException
     return user
 
@@ -40,7 +40,7 @@ def get_current_user(token: Annotated[str, Depends(oauth2_scheme)], db_session: 
 def create_access_token(data: dict):
     to_encode = data.copy()
     expire = datetime.datetime.now() + datetime.timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    to_encode.update({"expire_at": int(expire.timestamp())})
-    to_encode.update({"issued_at": int(datetime.datetime.now().timestamp())})
+    to_encode.update({"expire_at": expire.timestamp()})
+    to_encode.update({"issued_at": datetime.datetime.now().timestamp()})
     encoded_jwt = jwt.encode(to_encode, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
     return encoded_jwt

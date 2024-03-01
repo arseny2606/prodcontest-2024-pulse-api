@@ -299,7 +299,7 @@ def update_password(
         response.status_code = 403
         return ErrorResponse(reason="invalid old password")
     current_user.password = get_password_hash(body.newPassword.root)
-    current_user.updated_at = int(datetime.datetime.now().timestamp())
+    current_user.updated_at = datetime.datetime.now().timestamp()
     db_session.add(current_user)
     db_session.commit()
     return MeUpdatePasswordPostResponse(status="ok")
