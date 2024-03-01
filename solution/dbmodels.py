@@ -2,8 +2,8 @@ import datetime
 from typing import Optional
 
 from pydantic import constr
-from sqlalchemy import event
-from sqlmodel import Field, SQLModel
+from sqlalchemy import event, UniqueConstraint, Table, Column, Integer, ForeignKey, DateTime, func
+from sqlmodel import Field, SQLModel, Relationship
 
 
 class DBCountry(SQLModel, table=True):
@@ -14,6 +14,16 @@ class DBCountry(SQLModel, table=True):
     alpha2: constr(pattern=r'[a-zA-Z]{2}', max_length=2)
     alpha3: constr(pattern=r'[a-zA-Z]{3}', max_length=3)
     region: str
+
+
+friends = Table(
+    "friends",
+    SQLModel.metadata,
+    Column("whoadded_id", Integer, ForeignKey("users.id"), primary_key=True),
+    Column("added_id", Integer, ForeignKey("users.id"), primary_key=True),
+    Column("added_at", DateTime, nullable=False, default=func.now()),
+    UniqueConstraint('whoadded_id', 'added_id', name='_friends_uc'),
+)
 
 
 class DBUser(SQLModel, table=True):
@@ -28,6 +38,13 @@ class DBUser(SQLModel, table=True):
     phone: constr(pattern=r'\+[\d]+') = Field(unique=True, nullable=True)
     image: constr(max_length=200) = Field(nullable=True)
     updated_at: int = Field(nullable=True)
+
+    friends: list["DBUser"] = Relationship(sa_relationship_kwargs={"secondary": "friends",
+                                                                   "order_by": "friends.c.added_at",
+                                                                   "primaryjoin": "DBUser.id==friends.c.whoadded_id",
+                                                                   "secondaryjoin": "DBUser.id==friends.c.added_id",
+                                                                   "backref": "added_to_friends",
+                                                                   "lazy": "dynamic"})
 
 
 @event.listens_for(DBUser, 'before_insert')

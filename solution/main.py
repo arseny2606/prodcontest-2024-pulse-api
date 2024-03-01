@@ -1,16 +1,18 @@
 import datetime
 from typing import List, Optional, Union, Annotated
 
+import rfc3339
 from fastapi import FastAPI, APIRouter, Depends, Query, Response
 from fastapi.exceptions import HTTPException, RequestValidationError
 from passlib.context import CryptContext
 from pydantic import conint
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 from starlette.responses import JSONResponse
 
 from auth import create_access_token, get_current_user
 from database.database_connector import init_models, get_session
-from dbmodels import DBCountry, DBUser
+from dbmodels import DBCountry, DBUser, friends
 from models import (
     AuthRegisterPostRequest,
     AuthRegisterPostResponse,
@@ -164,26 +166,44 @@ def get_country(response: Response, alpha2: Annotated[str, CountryAlpha2], db_se
     responses={'401': {'model': ErrorResponse}},
 )
 def friends_list(
-        limit: Optional[conint(ge=0, le=50)] = 5, offset: Optional[int] = 0
+        limit: Optional[conint(ge=0, le=50)] = 5, offset: Optional[int] = 0, current_user=Depends(get_current_user),
+        db_session: Session = Depends(get_session)
 ) -> Union[List[FriendsGetResponse], ErrorResponse]:
     """
     Получение списка друзей
     """
-    pass
+    added_at_get = select(friends.c.added_id, friends.c.added_at).where(friends.c.whoadded_id == current_user.id)
+    added_at_res = db_session.execute(added_at_get).all()
+    added_at_dict = {i[0]: i[1] for i in added_at_res}
+    return [FriendsGetResponse(login=friend.login, addedAt=rfc3339.rfc3339(added_at_dict[friend.id])) for friend in
+            current_user.friends[offset:offset + limit]]
 
 
 @router.post(
     '/friends/add',
-    response_model=FriendsAddPostResponse,
+    response_model=Union[FriendsAddPostResponse, ErrorResponse],
     responses={'401': {'model': ErrorResponse}, '404': {'model': ErrorResponse}},
 )
 def friends_add(
-        body: FriendsAddPostRequest,
+        response: Response, body: FriendsAddPostRequest, current_user=Depends(get_current_user),
+        db_session=Depends(get_session)
 ) -> Union[FriendsAddPostResponse, ErrorResponse]:
     """
     Добавить пользователя в друзья
     """
-    pass
+    if body.login.root == current_user.login:
+        return FriendsAddPostResponse(status="ok")
+    user_to_add = db_session.query(DBUser).where(DBUser.login == body.login.root).first()
+    if user_to_add is None:
+        response.status_code = 404
+        return ErrorResponse(reason="user not found")
+    current_user.friends.append(user_to_add)
+    db_session.add(current_user)
+    try:
+        db_session.commit()
+    except:
+        pass
+    return FriendsAddPostResponse(status="ok")
 
 
 @router.post(
@@ -192,12 +212,22 @@ def friends_add(
     responses={'401': {'model': ErrorResponse}},
 )
 def friends_remove(
-        body: FriendsRemovePostRequest,
+        body: FriendsRemovePostRequest, current_user=Depends(get_current_user),
+        db_session=Depends(get_session)
 ) -> Union[FriendsRemovePostResponse, ErrorResponse]:
     """
     Удалить пользователя из друзей
     """
-    pass
+    user_to_add = db_session.query(DBUser).where(DBUser.login == body.login.root).first()
+    if user_to_add is None:
+        return FriendsRemovePostResponse(status="ok")
+    current_user.friends = [friend for friend in current_user.friends if friend.id != user_to_add.id]
+    db_session.add(current_user)
+    try:
+        db_session.commit()
+    except:
+        pass
+    return FriendsRemovePostResponse(status="ok")
 
 
 @router.get(
@@ -254,12 +284,14 @@ def patch_my_profile(response: Response, body: MeProfilePatchRequest, current_us
     },
 )
 def update_password(
-        response: Response, body: MeUpdatePasswordPostRequest, current_user=Depends(get_current_user), db_session=Depends(get_session)
+        response: Response, body: MeUpdatePasswordPostRequest, current_user=Depends(get_current_user),
+        db_session=Depends(get_session)
 ) -> Union[MeUpdatePasswordPostResponse, ErrorResponse]:
     """
     Обновление пароля
     """
-    if not all([any([i for i in body.newPassword.root if i.islower()]), any([i for i in body.newPassword.root if i.isupper()]),
+    if not all([any([i for i in body.newPassword.root if i.islower()]),
+                any([i for i in body.newPassword.root if i.isupper()]),
                 any([i for i in body.newPassword.root if i.isdigit()])]):
         response.status_code = 400
         return ErrorResponse(reason="invalid password")
@@ -373,7 +405,8 @@ def get_profile(response: Response, login: Annotated[str, UserLogin], current_us
     Получение профиля пользователя по логину
     """
     user_account = db_session.query(DBUser).filter(DBUser.login == login.root).first()
-    if user_account is None or (not user_account.isPublic and login.root != current_user.login):
+    if user_account is None or (not user_account.isPublic and (
+            login.root != current_user.login and current_user not in user_account.friends)):
         response.status_code = 403
         return ErrorResponse(reason="access denied")
     return user_account

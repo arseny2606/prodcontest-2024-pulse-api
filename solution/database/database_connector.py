@@ -5,7 +5,7 @@ from sqlmodel import SQLModel
 import config
 
 
-engine = create_engine(config.DATABASE_URL, poolclass=NullPool)
+engine = create_engine(config.DATABASE_URL, poolclass=NullPool, echo=True)
 session_maker = sessionmaker(engine, expire_on_commit=False)
 
 
@@ -21,5 +21,6 @@ def get_session():
 def init_models() -> None:
     from dbmodels import DBCountry  # noqa: unused
     from dbmodels import DBUser  # noqa: unused
+    from dbmodels import friends  # noqa: unused
     with engine.begin() as conn:
         SQLModel.metadata.create_all(conn)
