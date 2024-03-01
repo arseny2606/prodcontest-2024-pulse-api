@@ -289,7 +289,7 @@ def get_my_feed(
 def get_feed_by_others(
         login: Annotated[str, UserLogin],
         limit: Optional[conint(ge=0, le=50)] = 5,
-        offset: Optional[int] = 0,
+        offset: Optional[conint(ge=0)] = 0,
 ) -> Union[Post, ErrorResponse]:
     """
     Получить ленту с постами другого пользователя
