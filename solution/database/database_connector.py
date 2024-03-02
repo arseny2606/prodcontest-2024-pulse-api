@@ -24,5 +24,6 @@ def init_models() -> None:
     from dbmodels import friends  # noqa: unused
     from dbmodels import DBPost  # noqa: unused
     from dbmodels import DBTag  # noqa: unused
+    from dbmodels import post_rates  # noqa: unused
     with engine.begin() as conn:
         SQLModel.metadata.create_all(conn)

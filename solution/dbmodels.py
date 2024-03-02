@@ -3,7 +3,7 @@ import uuid
 from typing import Optional
 
 from pydantic import constr
-from sqlalchemy import event, UniqueConstraint, Table, Column, Integer, ForeignKey, DateTime, func, UUID, String
+from sqlalchemy import event, UniqueConstraint, Table, Column, Integer, ForeignKey, DateTime, func, UUID
 from sqlmodel import Field, SQLModel, Relationship
 
 
@@ -24,6 +24,15 @@ friends = Table(
     Column("added_id", Integer, ForeignKey("users.id"), primary_key=True),
     Column("added_at", DateTime, nullable=False, default=func.now()),
     UniqueConstraint('whoadded_id', 'added_id', name='_friends_uc'),
+)
+
+post_rates = Table(
+    "post_rates",
+    SQLModel.metadata,
+    Column("user_id", Integer, ForeignKey("users.id"), primary_key=True),
+    Column("post_id", UUID, ForeignKey("posts.id"), primary_key=True),
+    Column("rate_type", Integer),
+    UniqueConstraint('user_id', 'post_id', name='_post_rates_uc'),
 )
 
 
@@ -77,3 +86,18 @@ class DBPost(SQLModel, table=True):
 
     tags: list[DBTag] = Relationship()
     owner: DBUser = Relationship()
+
+    liked_users: list["DBUser"] = Relationship(sa_relationship_kwargs={"secondary": "post_rates",
+                                                                       "primaryjoin": "and_(DBPost.id==post_rates.c.post_id,"
+                                                                                      "post_rates.c.rate_type==1)",
+                                                                       "secondaryjoin": "and_(DBUser.id==post_rates.c.user_id,"
+                                                                                        "post_rates.c.rate_type==1)",
+                                                                       "backref": "liked_posts",
+                                                                       "lazy": "dynamic"})
+    disliked_users: list["DBUser"] = Relationship(sa_relationship_kwargs={"secondary": "post_rates",
+                                                                          "primaryjoin": "and_(DBPost.id==post_rates.c.post_id,"
+                                                                                         "post_rates.c.rate_type==-1)",
+                                                                          "secondaryjoin": "and_(DBUser.id==post_rates.c.user_id,"
+                                                                                           "post_rates.c.rate_type==-1)",
+                                                                          "backref": "disliked_posts",
+                                                                          "lazy": "dynamic"})

@@ -8,12 +8,13 @@ from fastapi.exceptions import HTTPException, RequestValidationError
 from passlib.context import CryptContext
 from pydantic import conint
 from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 from starlette.responses import JSONResponse
 
 from auth import create_access_token, get_current_user
 from database.database_connector import init_models, get_session
-from dbmodels import DBCountry, DBUser, friends, DBPost, DBTag
+from dbmodels import DBCountry, DBUser, friends, DBPost, DBTag, post_rates
 from models import (
     AuthRegisterPostRequest,
     AuthRegisterPostResponse,
@@ -328,7 +329,8 @@ def get_my_feed(
     """
     return [Post(id=str(post.id), content=post.content,
                  author=post.owner.login, createdAt=rfc3339.rfc3339(post.createdAt),
-                 tags=[tag.tag for tag in post.tags], likesCount=0, dislikesCount=0) for post in
+                 tags=[tag.tag for tag in post.tags], likesCount=post.liked_users.count(),
+                 dislikesCount=post.disliked_users.count()) for post in
             current_user.posts[offset:offset + limit]]
 
 
@@ -354,7 +356,8 @@ def get_feed_by_others(
         return ErrorResponse(reason="posts not found")
     return [Post(id=str(post.id), content=post.content,
                  author=post.owner.login, createdAt=rfc3339.rfc3339(post.createdAt),
-                 tags=[tag.tag for tag in post.tags], likesCount=0, dislikesCount=0) for post in
+                 tags=[tag.tag for tag in post.tags], likesCount=post.liked_users.count(),
+                 dislikesCount=post.disliked_users.count()) for post in
             user.posts[offset:offset + limit]]
 
 
@@ -371,7 +374,8 @@ def submit_post(body: PostsNewPostRequest, current_user=Depends(get_current_user
     db_session.commit()
     return Post(id=str(new_post.id), content=new_post.content,
                 author=new_post.owner.login, createdAt=rfc3339.rfc3339(new_post.createdAt),
-                tags=[tag.tag for tag in new_post.tags], likesCount=0, dislikesCount=0)
+                tags=[tag.tag for tag in new_post.tags], likesCount=new_post.liked_users.count(),
+                dislikesCount=new_post.disliked_users.count())
 
 
 @router.get(
@@ -395,35 +399,78 @@ def get_post_by_id(
         return ErrorResponse(reason="post not found")
     return Post(id=str(post.id), content=post.content,
                 author=post.owner.login, createdAt=rfc3339.rfc3339(post.createdAt),
-                tags=[tag.tag for tag in post.tags], likesCount=0, dislikesCount=0)
+                tags=[tag.tag for tag in post.tags], likesCount=post.liked_users.count(),
+                dislikesCount=post.disliked_users.count())
 
 
 @router.post(
     '/posts/{post_id}/dislike',
-    response_model=Post,
+    response_model=Union[Post, ErrorResponse],
     responses={'401': {'model': ErrorResponse}, '404': {'model': ErrorResponse}},
 )
 def dislike_post(
-        post_id: Annotated[str, PostId]
+        response: Response, post_id: Annotated[uuid.UUID, PostId], current_user=Depends(get_current_user),
+        db_session=Depends(get_session)
 ) -> Union[Post, ErrorResponse]:
     """
     Дизлайк поста
     """
-    pass
+    post = db_session.query(DBPost).where(DBPost.id == post_id.root).one()  # noqa
+    if not post:
+        response.status_code = 404
+        return ErrorResponse(reason="post not found")
+    if not post.owner.isPublic and post.owner != current_user and current_user not in post.owner.friends:
+        response.status_code = 404
+        return ErrorResponse(reason="post not found")
+    insert_stmt = insert(post_rates).values(
+        user_id=current_user.id,
+        post_id=str(post_id.root), # noqa
+        rate_type=-1)
+    insert_stmt = insert_stmt.on_conflict_do_update(
+        constraint='_post_rates_uc',
+        set_={"rate_type": -1})
+    db_session.execute(insert_stmt)
+    db_session.commit()
+    db_session.refresh(post)
+    return Post(id=str(post.id), content=post.content,
+                author=post.owner.login, createdAt=rfc3339.rfc3339(post.createdAt),
+                tags=[tag.tag for tag in post.tags], likesCount=post.liked_users.count(),
+                dislikesCount=post.disliked_users.count())
 
 
 @router.post(
     '/posts/{post_id}/like',
-    response_model=Post,
+    response_model=Union[Post, ErrorResponse],
     responses={'401': {'model': ErrorResponse}, '404': {'model': ErrorResponse}},
 )
 def like_post(
-        post_id: Annotated[str, PostId]
+        response: Response, post_id: Annotated[uuid.UUID, PostId], current_user=Depends(get_current_user),
+        db_session=Depends(get_session)
 ) -> Union[Post, ErrorResponse]:
     """
     Лайк поста
     """
-    pass
+    post = db_session.query(DBPost).where(DBPost.id == post_id.root).one()  # noqa
+    if not post:
+        response.status_code = 404
+        return ErrorResponse(reason="post not found")
+    if not post.owner.isPublic and post.owner != current_user and current_user not in post.owner.friends:
+        response.status_code = 404
+        return ErrorResponse(reason="post not found")
+    insert_stmt = insert(post_rates).values(
+        user_id=current_user.id,
+        post_id=str(post_id.root), # noqa
+        rate_type=1)
+    insert_stmt = insert_stmt.on_conflict_do_update(
+        constraint='_post_rates_uc',
+        set_={"rate_type": 1})
+    db_session.execute(insert_stmt)
+    db_session.commit()
+    db_session.refresh(post)
+    return Post(id=str(post.id), content=post.content,
+                author=post.owner.login, createdAt=rfc3339.rfc3339(post.createdAt),
+                tags=[tag.tag for tag in post.tags], likesCount=post.liked_users.count(),
+                dislikesCount=post.disliked_users.count())
 
 
 @router.get(
