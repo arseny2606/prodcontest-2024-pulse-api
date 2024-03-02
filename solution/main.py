@@ -318,31 +318,44 @@ def ping() -> Union[PingResponse, ErrorResponse]:
 
 
 @router.get(
-    '/posts/feed/my', response_model=Post, responses={'401': {'model': ErrorResponse}}
+    '/posts/feed/my', response_model=List[Post], responses={'401': {'model': ErrorResponse}}
 )
 def get_my_feed(
-        limit: Optional[conint(ge=0, le=50)] = 5, offset: Optional[int] = 0
-) -> Union[Post, ErrorResponse]:
+        limit: Optional[conint(ge=0, le=50)] = 5, offset: Optional[int] = 0, current_user=Depends(get_current_user)
+) -> Union[List[Post], ErrorResponse]:
     """
     Получить ленту со своими постами
     """
-    pass
+    return [Post(id=str(post.id), content=post.content,
+                 author=post.owner.login, createdAt=rfc3339.rfc3339(post.createdAt),
+                 tags=[tag.tag for tag in post.tags], likesCount=0, dislikesCount=0) for post in
+            current_user.posts[offset:offset + limit]]
 
 
 @router.get(
     '/posts/feed/{login}',
-    response_model=Post,
+    response_model=Union[List[Post], ErrorResponse],
     responses={'401': {'model': ErrorResponse}, '404': {'model': ErrorResponse}},
 )
 def get_feed_by_others(
+        response: Response,
         login: Annotated[str, UserLogin],
         limit: Optional[conint(ge=0, le=50)] = 5,
         offset: Optional[conint(ge=0)] = 0,
-) -> Union[Post, ErrorResponse]:
+        current_user=Depends(get_current_user),
+        db_session=Depends(get_session)
+) -> Union[List[Post], ErrorResponse]:
     """
     Получить ленту с постами другого пользователя
     """
-    pass
+    user = db_session.query(DBUser).where(DBUser.login == login.root).one()  # noqa
+    if not user or (not user.isPublic and user != current_user and current_user not in user.friends):
+        response.status_code = 404
+        return ErrorResponse(reason="posts not found")
+    return [Post(id=str(post.id), content=post.content,
+                 author=post.owner.login, createdAt=rfc3339.rfc3339(post.createdAt),
+                 tags=[tag.tag for tag in post.tags], likesCount=0, dislikesCount=0) for post in
+            user.posts[offset:offset + limit]]
 
 
 @router.post(
@@ -367,12 +380,13 @@ def submit_post(body: PostsNewPostRequest, current_user=Depends(get_current_user
     responses={'401': {'model': ErrorResponse}, '404': {'model': ErrorResponse}},
 )
 def get_post_by_id(
-        response: Response, post_id: Annotated[uuid.UUID, PostId], current_user=Depends(get_current_user), db_session=Depends(get_session)
+        response: Response, post_id: Annotated[uuid.UUID, PostId], current_user=Depends(get_current_user),
+        db_session=Depends(get_session)
 ) -> Union[Post, ErrorResponse]:
     """
     Получить ленту со своими постами
     """
-    post = db_session.query(DBPost).where(DBPost.id == post_id.root).one() # noqa
+    post = db_session.query(DBPost).where(DBPost.id == post_id.root).one()  # noqa
     if not post:
         response.status_code = 404
         return ErrorResponse(reason="post not found")

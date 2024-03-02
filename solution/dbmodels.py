@@ -46,7 +46,10 @@ class DBUser(SQLModel, table=True):
                                                                    "secondaryjoin": "DBUser.id==friends.c.added_id",
                                                                    "backref": "added_to_friends",
                                                                    "lazy": "dynamic"})
-    posts: list["DBPost"] = Relationship(back_populates="owner")
+    posts: list["DBPost"] = Relationship(back_populates="owner", sa_relationship_kwargs={
+        "order_by": "desc(posts.c.createdAt)",
+        "lazy": "dynamic"
+    })
 
 
 @event.listens_for(DBUser, 'before_insert')
