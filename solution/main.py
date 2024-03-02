@@ -1,4 +1,5 @@
 import datetime
+import uuid
 from typing import List, Optional, Union, Annotated
 
 import rfc3339
@@ -362,16 +363,25 @@ def submit_post(body: PostsNewPostRequest, current_user=Depends(get_current_user
 
 @router.get(
     '/posts/{post_id}',
-    response_model=Post,
+    response_model=Union[Post, ErrorResponse],
     responses={'401': {'model': ErrorResponse}, '404': {'model': ErrorResponse}},
 )
 def get_post_by_id(
-        post_id: Annotated[str, PostId]
+        response: Response, post_id: Annotated[uuid.UUID, PostId], current_user=Depends(get_current_user), db_session=Depends(get_session)
 ) -> Union[Post, ErrorResponse]:
     """
     Получить ленту со своими постами
     """
-    pass
+    post = db_session.query(DBPost).where(DBPost.id == post_id.root).one() # noqa
+    if not post:
+        response.status_code = 404
+        return ErrorResponse(reason="post not found")
+    if not post.owner.isPublic and post.owner != current_user and current_user not in post.owner.friends:
+        response.status_code = 404
+        return ErrorResponse(reason="post not found")
+    return Post(id=str(post.id), content=post.content,
+                author=post.owner.login, createdAt=rfc3339.rfc3339(post.createdAt),
+                tags=[tag.tag for tag in post.tags], likesCount=0, dislikesCount=0)
 
 
 @router.post(

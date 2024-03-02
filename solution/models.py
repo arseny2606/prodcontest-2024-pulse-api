@@ -1,5 +1,6 @@
 from enum import Enum
 from typing import List, Optional
+from uuid import UUID
 
 from pydantic import BaseModel, Field, conint, constr, RootModel
 
@@ -89,8 +90,8 @@ class UserProfile(BaseModel):
     image: Optional[UserImage] = None
 
 
-class PostId(RootModel[str]):
-    root: constr(max_length=100) = Field(
+class PostId(RootModel[UUID]):
+    root: UUID = Field(
         ...,
         description='Уникальный идентификатор публикации, присвоенный сервером.',
         example='550e8400-e29b-41d4-a716-446655440000',
