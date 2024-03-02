@@ -12,7 +12,7 @@ from starlette.responses import JSONResponse
 
 from auth import create_access_token, get_current_user
 from database.database_connector import init_models, get_session
-from dbmodels import DBCountry, DBUser, friends
+from dbmodels import DBCountry, DBUser, friends, DBPost, DBTag
 from models import (
     AuthRegisterPostRequest,
     AuthRegisterPostResponse,
@@ -90,6 +90,9 @@ def auth_register(
                 any([i for i in db_model.password if i.isdigit()])]):
         response.status_code = 400
         return ErrorResponse(reason="invalid password")
+    if db_model.login == "my":
+        response.status_code = 400
+        return ErrorResponse(reason="invalid login")
     db_model.password = get_password_hash(db_model.password)
     country = db_session.query(DBCountry).filter(DBCountry.alpha2 == db_model.countryCode)
     if not country.first():
@@ -344,11 +347,17 @@ def get_feed_by_others(
 @router.post(
     '/posts/new', response_model=Post, responses={'401': {'model': ErrorResponse}}
 )
-def submit_post(body: PostsNewPostRequest) -> Union[Post, ErrorResponse]:
+def submit_post(body: PostsNewPostRequest, current_user=Depends(get_current_user), db_session=Depends(get_session)) -> \
+        Union[Post, ErrorResponse]:
     """
     Отправить публикацию
     """
-    pass
+    new_post = DBPost(content=body.content.root, tags=[DBTag(tag=tag) for tag in body.tags.root], owner=current_user)
+    db_session.add(new_post)
+    db_session.commit()
+    return Post(id=str(new_post.id), content=new_post.content,
+                author=new_post.owner.login, createdAt=rfc3339.rfc3339(new_post.createdAt),
+                tags=[tag.tag for tag in new_post.tags], likesCount=0, dislikesCount=0)
 
 
 @router.get(

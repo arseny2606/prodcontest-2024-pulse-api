@@ -65,7 +65,7 @@ class UserIsPublic(RootModel[bool]):
 
 
 class UserPhone(RootModel[str]):
-    root: constr(min_length=1, pattern=r'\+[\d]+') = Field(
+    root: constr(min_length=1, pattern=r'\+[\d]+', max_length=20) = Field(
         ...,
         description='Номер телефона пользователя в формате +123456789',
         example='+74951239922',
