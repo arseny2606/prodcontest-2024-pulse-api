@@ -171,7 +171,7 @@ def get_country(response: Response, alpha2: Annotated[str, CountryAlpha2], db_se
     responses={'401': {'model': ErrorResponse}},
 )
 def friends_list(
-        limit: Optional[conint(ge=0, le=50)] = 5, offset: Optional[int] = 0, current_user=Depends(get_current_user),
+        limit: Optional[conint(ge=0, le=50)] = 5, offset: Optional[conint(ge=0)] = 0, current_user=Depends(get_current_user),
         db_session: Session = Depends(get_session)
 ) -> Union[List[FriendsGetResponse], ErrorResponse]:
     """
@@ -322,7 +322,7 @@ def ping() -> Union[PingResponse, ErrorResponse]:
     '/posts/feed/my', response_model=List[Post], responses={'401': {'model': ErrorResponse}}
 )
 def get_my_feed(
-        limit: Optional[conint(ge=0, le=50)] = 5, offset: Optional[int] = 0, current_user=Depends(get_current_user)
+        limit: Optional[conint(ge=0, le=50)] = 5, offset: Optional[conint(ge=0)] = 0, current_user=Depends(get_current_user)
 ) -> Union[List[Post], ErrorResponse]:
     """
     Получить ленту со своими постами
