@@ -29,7 +29,7 @@ def get_current_user(token: Annotated[str, Depends(oauth2_scheme)], db_session: 
             raise CredentialsException
     except JWTError:
         raise CredentialsException
-    user: DBUser = db_session.query(DBUser).filter(DBUser.login == login).one()
+    user: DBUser = db_session.query(DBUser).filter(DBUser.login == login).first()
     token_issued: float = payload.get("issued_at", 0)
     expire_at: float = payload.get("expire_at", 0)
     if user is None or user.updated_at > token_issued or expire_at < datetime.datetime.now().timestamp():

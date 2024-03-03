@@ -22,13 +22,13 @@ services:
     ports:
       - "5433:5432"
     volumes:
-      - database:/var/lib/postgresql/data
+      - database1:/var/lib/postgresql/data
     networks:
       pulse_api:
         ipv4_address: 172.32.0.3
 
 volumes:
-  database:
+  database1:
 
 networks:
   pulse_api:

@@ -350,7 +350,7 @@ def get_feed_by_others(
     """
     Получить ленту с постами другого пользователя
     """
-    user = db_session.query(DBUser).where(DBUser.login == login.root).one()  # noqa
+    user = db_session.query(DBUser).where(DBUser.login == login.root).first()  # noqa
     if not user or (not user.isPublic and user != current_user and current_user not in user.friends):
         response.status_code = 404
         return ErrorResponse(reason="posts not found")
@@ -369,7 +369,7 @@ def submit_post(body: PostsNewPostRequest, current_user=Depends(get_current_user
     """
     Отправить публикацию
     """
-    new_post = DBPost(content=body.content.root, tags=[DBTag(tag=tag) for tag in body.tags.root], owner=current_user)
+    new_post = DBPost(content=body.content.root, tags=[DBTag(tag=tag) for tag in set(body.tags.root)], owner=current_user)
     db_session.add(new_post)
     db_session.commit()
     return Post(id=str(new_post.id), content=new_post.content,
@@ -390,7 +390,7 @@ def get_post_by_id(
     """
     Получить ленту со своими постами
     """
-    post = db_session.query(DBPost).where(DBPost.id == post_id.root).one()  # noqa
+    post = db_session.query(DBPost).where(DBPost.id == post_id.root).first()  # noqa
     if not post:
         response.status_code = 404
         return ErrorResponse(reason="post not found")
@@ -415,7 +415,7 @@ def dislike_post(
     """
     Дизлайк поста
     """
-    post = db_session.query(DBPost).where(DBPost.id == post_id.root).one()  # noqa
+    post = db_session.query(DBPost).where(DBPost.id == post_id.root).first()  # noqa
     if not post:
         response.status_code = 404
         return ErrorResponse(reason="post not found")
@@ -450,7 +450,7 @@ def like_post(
     """
     Лайк поста
     """
-    post = db_session.query(DBPost).where(DBPost.id == post_id.root).one()  # noqa
+    post = db_session.query(DBPost).where(DBPost.id == post_id.root).first()  # noqa
     if not post:
         response.status_code = 404
         return ErrorResponse(reason="post not found")
