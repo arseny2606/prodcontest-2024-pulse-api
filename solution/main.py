@@ -390,7 +390,11 @@ def get_post_by_id(
     """
     Получить ленту со своими постами
     """
-    post = db_session.query(DBPost).where(DBPost.id == post_id.root).first()  # noqa
+    try:
+        post = db_session.query(DBPost).where(DBPost.id == post_id.root).first()  # noqa
+    except:
+        response.status_code = 404
+        return ErrorResponse(reason="post not found")
     if not post:
         response.status_code = 404
         return ErrorResponse(reason="post not found")
@@ -415,7 +419,11 @@ def dislike_post(
     """
     Дизлайк поста
     """
-    post = db_session.query(DBPost).where(DBPost.id == post_id.root).first()  # noqa
+    try:
+        post = db_session.query(DBPost).where(DBPost.id == post_id.root).first()  # noqa
+    except:
+        response.status_code = 404
+        return ErrorResponse(reason="post not found")
     if not post:
         response.status_code = 404
         return ErrorResponse(reason="post not found")
@@ -450,7 +458,11 @@ def like_post(
     """
     Лайк поста
     """
-    post = db_session.query(DBPost).where(DBPost.id == post_id.root).first()  # noqa
+    try:
+        post = db_session.query(DBPost).where(DBPost.id == post_id.root).first()  # noqa
+    except:
+        response.status_code = 404
+        return ErrorResponse(reason="post not found")
     if not post:
         response.status_code = 404
         return ErrorResponse(reason="post not found")
