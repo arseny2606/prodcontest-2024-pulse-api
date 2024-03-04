@@ -50,7 +50,7 @@ class DBUser(SQLModel, table=True):
     updated_at: float = Field(nullable=True)
 
     friends: list["DBUser"] = Relationship(sa_relationship_kwargs={"secondary": "friends",
-                                                                   "order_by": "friends.c.added_at",
+                                                                   "order_by": "desc(friends.c.added_at)",
                                                                    "primaryjoin": "DBUser.id==friends.c.whoadded_id",
                                                                    "secondaryjoin": "DBUser.id==friends.c.added_id",
                                                                    "backref": "added_to_friends",
