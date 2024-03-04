@@ -384,7 +384,7 @@ def submit_post(body: PostsNewPostRequest, current_user=Depends(get_current_user
     responses={'401': {'model': ErrorResponse}, '404': {'model': ErrorResponse}},
 )
 def get_post_by_id(
-        response: Response, post_id: Annotated[uuid.UUID, PostId], current_user=Depends(get_current_user),
+        response: Response, post_id: Annotated[str, PostId], current_user=Depends(get_current_user),
         db_session=Depends(get_session)
 ) -> Union[Post, ErrorResponse]:
     """
@@ -413,7 +413,7 @@ def get_post_by_id(
     responses={'401': {'model': ErrorResponse}, '404': {'model': ErrorResponse}},
 )
 def dislike_post(
-        response: Response, post_id: Annotated[uuid.UUID, PostId], current_user=Depends(get_current_user),
+        response: Response, post_id: Annotated[str, PostId], current_user=Depends(get_current_user),
         db_session=Depends(get_session)
 ) -> Union[Post, ErrorResponse]:
     """
@@ -452,7 +452,7 @@ def dislike_post(
     responses={'401': {'model': ErrorResponse}, '404': {'model': ErrorResponse}},
 )
 def like_post(
-        response: Response, post_id: Annotated[uuid.UUID, PostId], current_user=Depends(get_current_user),
+        response: Response, post_id: Annotated[str, PostId], current_user=Depends(get_current_user),
         db_session=Depends(get_session)
 ) -> Union[Post, ErrorResponse]:
     """
